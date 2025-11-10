@@ -1,183 +1,111 @@
-// app.js
-// Frontend JS for AI SQLi Detector
-// - Supports index.html (query check) and admin.html (stats)
-// - Update API_BASE if your backend runs on a different host/port
-const API_BASE = "http://127.0.0.1:5000"; // change if necessary
-const FETCH_TIMEOUT_MS = 8000; // 8s timeout for API calls
+/* app.js - frontend logic used by both index.html & admin.html
+   Important: set window.APP_CONFIG.BACKEND_URL in index/admin HTML before this script
+*/
 
-/* ---------- Helpers ---------- */
-function el(id) { return document.getElementById(id); }
+const CONFIG = window.APP_CONFIG || {};
+const BACKEND = CONFIG.BACKEND_URL || "http://127.0.0.1:5000";
 
-function withTimeout(fetchPromise, timeout = FETCH_TIMEOUT_MS) {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
-    return fetchPromise({ signal: controller.signal }).finally(() => clearTimeout(id));
-}
+function el(id){ return document.getElementById(id) }
 
-function safeJson(resp) {
-    return resp.json().catch(() => ({}));
-}
+// --- Index page logic ---
+async function checkQueryHandler(){
+  const ta = el("sqlQuery");
+  const resultBox = el("resultBox");
+  const resultLabel = el("resultLabel");
+  const resultMeta = el("resultMeta");
 
-function setResult(message, type = "info") {
-    // type: 'info' | 'safe' | 'sqli' | 'error'
-    const resultEl = el("result") || el("resultLabel") || null;
-    if (!resultEl) return;
-    resultEl.innerHTML = message;
-    resultEl.style.color = {
-        safe: "#22c55e",
-        sqli: "#ef4444",
-        error: "#f59e0b",
-        info: "#fff"
-    }[type] || "#fff";
-}
+  if(!ta) return;
+  const q = ta.value.trim();
+  resultBox.classList.remove("hidden");
+  resultLabel.textContent = "Checking...";
+  resultMeta.textContent = "";
 
-/* ---------- Query Check (index.html) ---------- */
-async function checkQuery() {
-    const queryInput = el("queryInput") || el("sqlQuery") || el("queryInputText") || null;
-    const checkBtn = el("checkBtn") || el("checkQueryBtn") || null;
-    if (!queryInput) return alert("Query input not found on page.");
+  if(!q){ resultLabel.textContent = "Please enter a query."; resultLabel.style.color = "#f59e0b"; return; }
 
-    const query = queryInput.value.trim();
-    if (!query) {
-        setResult("Please enter a SQL query.", "error");
-        return;
-    }
-
-    if (checkBtn) {
-        checkBtn.disabled = true;
-        checkBtn.innerText = "Checking...";
-    }
-
-    try {
-        const resp = await withTimeout((opts) => fetch(`${API_BASE}/check`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query }),
-            signal: opts.signal
-        }), FETCH_TIMEOUT_MS);
-
-        if (!resp.ok) {
-            // try to read JSON error or show generic
-            const err = await safeJson(resp);
-            const msg = err.message || `Server returned ${resp.status}`;
-            setResult(`Server Error: ${msg}`, "error");
-        } else {
-            const data = await safeJson(resp);
-            handleCheckResult(data);
-            // refresh stats after each check (if admin / stats area present)
-            await fetchStats();
-        }
-    } catch (e) {
-        console.error("checkQuery error:", e);
-        if (e.name === "AbortError") {
-            setResult("Request timed out. Backend may be slow or unreachable.", "error");
-        } else {
-            setResult("Backend not reachable. Start server and try again.", "error");
-        }
-    } finally {
-        if (checkBtn) {
-            checkBtn.disabled = false;
-            checkBtn.innerText = "Check Query";
-        }
-    }
-}
-
-function handleCheckResult(data) {
-    // Expected shape from backend: { label: "sqli"|"safe", confidence: 0.9|null, reason: "rule:..."/"ml"/... }
-    if (!data || !data.label) {
-        setResult("Invalid response from server.", "error");
-        return;
-    }
-
-    const label = String(data.label).toLowerCase();
-    const reason = data.reason ? String(data.reason) : "No reason provided";
-    const conf = (data.confidence !== undefined && data.confidence !== null) ? ` (conf: ${(data.confidence*100).toFixed(1)}%)` : "";
-
-    if (label === "sqli" || label === "malicious") {
-        setResult(`🚫 Unsafe Query Detected${conf}<br><small>Reason: ${reason}</small>`, "sqli");
-    } else if (label === "safe" || label === "benign") {
-        setResult(`✅ Safe Query${conf}<br><small>Reason: ${reason}</small>`, "safe");
+  try {
+    const resp = await fetch(${BACKEND}/check, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: q })
+    });
+    if(!resp.ok) throw new Error("backend error");
+    const data = await resp.json();
+    // format
+    if(data.label === "sqli"){
+      resultLabel.textContent = "🚫 SQL Injection Detected";
+      resultLabel.style.color = "#ff6b6b";
+      resultMeta.textContent = Reason: ${data.reason || "ml/rule"}  •  Confidence: ${typeof data.confidence !== "undefined" ? data.confidence : "N/A"};
+    } else if(data.label === "safe"){
+      resultLabel.textContent = "✅ Query looks safe";
+      resultLabel.style.color = "#6ee7b7";
+      resultMeta.textContent = Reason: ${data.reason || "ml"}  •  Confidence: ${typeof data.confidence !== "undefined" ? data.confidence : "N/A"};
     } else {
-        setResult(`${label.toUpperCase()} - ${reason}`, "info");
+      resultLabel.textContent = ⚠ ${data.label};
+      resultLabel.style.color = "#f59e0b";
+      resultMeta.textContent = String(data.reason || "");
     }
+    // refresh stats after each check (if admin page open)
+    await fetchStats();
+  } catch(err){
+    resultLabel.textContent = "❌ Backend not reachable";
+    resultLabel.style.color = "#ff6b6b";
+    resultMeta.textContent = String(err);
+    console.error(err);
+  }
 }
 
-/* ---------- Stats (admin.html and index.html optional) ---------- */
-async function fetchStats() {
-    const totalEl = el("total") || el("totalQueries") || el("totalQueriesSpan");
-    const safeEl  = el("safe")  || el("safeQueries")  || el("safeQueriesSpan");
-    const attacksEl = el("attacks") || el("sqliQueries") || el("blockedQueries");
-
-    const refreshBtn = el("refreshStats") || el("refreshBtn") || null;
-    if (refreshBtn) {
-        refreshBtn.disabled = true;
-        refreshBtn.innerText = "Loading...";
-    }
-
-    try {
-        const resp = await withTimeout((opts) => fetch(API_BASE + "/stats", { signal: opts.signal }), FETCH_TIMEOUT_MS);
-        if (!resp.ok) {
-            console.error("Stats fetch failed", resp.status);
-            return;
-        }
-        const stats = await safeJson(resp);
-        if (totalEl) totalEl.innerText = stats.total ?? 0;
-        if (safeEl) safeEl.innerText = stats.safe ?? 0;
-        if (attacksEl) attacksEl.innerText = stats.attacks ?? 0;
-    } catch (e) {
-        console.error("fetchStats error:", e);
-        // silently fail (keep previous numbers), but log to console
-    } finally {
-        if (refreshBtn) {
-            refreshBtn.disabled = false;
-            refreshBtn.innerText = "Refresh Stats";
-        }
-    }
+// clear textarea
+function clearQuery(){
+  const ta = el("sqlQuery");
+  if(ta) ta.value = "";
+  const rb = el("resultBox");
+  if(rb) rb.classList.add("hidden");
 }
 
-/* ---------- Auto-refresh on admin page ---------- */
-let statsInterval = null;
-function startAutoRefresh() {
-    // only start if admin page is present
-    if (!el("statsSection") && !el("stats") && !el("total")) return;
-    // fetch immediately then every 5s
-    fetchStats();
-    if (!statsInterval) statsInterval = setInterval(fetchStats, 5000);
+// --- Admin page logic ---
+async function fetchStats(){
+  try {
+    const resp = await fetch(${BACKEND}/stats);
+    if(!resp.ok) throw new Error("stats error");
+    const data = await resp.json();
+    if(el("totalQueries")) el("totalQueries").textContent = data.total ?? 0;
+    if(el("safeQueries")) el("safeQueries").textContent = data.safe ?? 0;
+    if(el("sqliQueries")) el("sqliQueries").textContent = data.attacks ?? 0;
+    if(el("statsMsg")) el("statsMsg").textContent = "";
+  } catch(err){
+    console.error("fetchStats:", err);
+    if(el("statsMsg")) el("statsMsg").textContent = "Could not load stats — backend unreachable";
+  }
 }
-function stopAutoRefresh() {
-    if (statsInterval) {
-        clearInterval(statsInterval);
-        statsInterval = null;
-    }
+
+// export csv (basic)
+async function exportCSV(){
+  try {
+    const resp = await fetch(${BACKEND}/export_logs); // optional endpoint in backend (see server instructions)
+    if(!resp.ok) throw new Error("export failed");
+    const text = await resp.text();
+    const blob = new Blob([text], {type: "text/csv"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "logs.csv";
+    a.click();
+  } catch(err){
+    console.error("export error:", err);
+    if(el("statsMsg")) el("statsMsg").textContent = "Export failed (server must implement /export_logs)";
+  }
 }
 
-/* ---------- Wire UI elements on load ---------- */
-window.addEventListener("DOMContentLoaded", () => {
-    // Query check bindings
-    const checkBtn = el("checkBtn") || el("checkQueryBtn") || null;
-    const queryInput = el("queryInput") || el("sqlQuery") || null;
+// attach listeners if DOM elements exist
+document.addEventListener("DOMContentLoaded", () => {
+  const checkBtn = el("checkBtn");
+  if(checkBtn) checkBtn.addEventListener("click", checkQueryHandler);
+  const clearBtn = el("clearBtn");
+  if(clearBtn) clearBtn.addEventListener("click", clearQuery);
+  const refreshBtn = el("refreshBtn");
+  if(refreshBtn) refreshBtn.addEventListener("click", fetchStats);
+  const exportBtn = el("exportBtn");
+  if(exportBtn) exportBtn.addEventListener("click", exportCSV);
 
-    if (checkBtn && queryInput) {
-        checkBtn.addEventListener("click", checkQuery);
-        // allow Ctrl+Enter to submit
-        queryInput.addEventListener("keydown", (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") checkQuery();
-        });
-    }
-
-    // Stats bindings
-    const refreshBtn = el("refreshStats") || el("refreshBtn") || null;
-    if (refreshBtn) refreshBtn.addEventListener("click", fetchStats);
-
-    // Auto refresh on admin page
-    startAutoRefresh();
+  // auto-load stats on admin page
+  if(el("totalQueries")) fetchStats();
 });
-
-/* ---------- Expose for debugging (optional) ---------- */
-window.__sqlidetector = {
-    checkQuery,
-    fetchStats,
-    startAutoRefresh,
-    stopAutoRefresh,
-    setResult
-};
