@@ -1,21 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Dashboard</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Admin Dashboard — SQLi Detector</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <script>
+    // Edit this to point to your backend public URL (same value you set in index.html)
+    const BACKEND_URL = "http://127.0.0.1:5000";
+    window.APP_CONFIG = { BACKEND_URL };
+  </script>
 </head>
 <body>
-<div class="container">
-  <h1>Admin Dashboard</h1>
-  <div id="statsSection">
-    <p>Total Queries: <span id="total">0</span></p>
-    <p>Safe Queries: <span id="safe">0</span></p>
-    <p>SQLi Queries: <span id="attacks">0</span></p>
-  </div>
-  <a href="index.html">Back to Home</a>
-</div>
-<script src="app.js"></script>
+  <main class="container admin">
+    <header class="hero">
+      <h1>📊 Admin Dashboard</h1>
+      <p class="subtitle">Live stats of queries analyzed</p>
+    </header>
+
+    <section class="card stats-card">
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-value" id="totalQueries">0</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="safeQueries">0</div>
+          <div class="stat-label">Safe</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="sqliQueries">0</div>
+          <div class="stat-label">SQLi</div>
+        </div>
+      </div>
+
+      <div class="controls" style="justify-content:center; margin-top:18px;">
+        <button id="refreshBtn" class="btn primary">Refresh Stats</button>
+        <button id="exportBtn" class="btn">Download CSV</button>
+        <a class="btn link" href="index.html">Back</a>
+      </div>
+
+      <div id="statsMsg" class="small muted" style="margin-top:12px"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
 </body>
 </html>
