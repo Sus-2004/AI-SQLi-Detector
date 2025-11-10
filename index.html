@@ -1,29 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>AI SQL Injection Detector</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>AI-Guided SQLi Detector</title>
+
+  <!-- styles -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Set BACKEND_URL here. Replace the value with your deployed backend URL (see instructions).
+       Examples:
+         - Local ngrok: https://abcd-1234.ngrok.io
+         - Render/Heroku: https://your-app.onrender.com
+  -->
+  <script>
+    // EDIT THIS when you deploy the backend (or set at runtime)
+    const BACKEND_URL = "http://127.0.0.1:5000"; 
+    window.APP_CONFIG = { BACKEND_URL };
+  </script>
 </head>
 <body>
-    <div class="container">
-        <h1>AI-Guided SQL Injection Detector</h1>
-        
-        <div class="query-section">
-            <textarea id="sqlQuery" placeholder="Enter your SQL query here..."></textarea>
-            <button id="checkBtn">Check Query</button>
-            <div id="result"></div>
-        </div>
+  <main class="container">
+    <header class="hero">
+      <h1>🔐 AI‑Guided Intelligent SQL Injection Detector</h1>
+      <p class="subtitle">Paste an SQL query and check if it is malicious — demo for presentation & testing.</p>
+    </header>
 
-        <div class="stats-section">
-            <h2>Statistics</h2>
-            <p>Total Queries: <span id="total">0</span></p>
-            <p>Safe Queries: <span id="safe">0</span></p>
-            <p>SQL Injection Attempts: <span id="attacks">0</span></p>
-            <button id="refreshStats">Refresh Stats</button>
-        </div>
-    </div>
+    <section class="card">
+      <label for="sqlQuery" class="label">Enter SQL query</label>
+      <textarea id="sqlQuery" placeholder="e.g. SELECT * FROM users WHERE id=1;"></textarea>
 
-    <script src="app.js"></script>
+      <div class="controls">
+        <button id="checkBtn" class="btn primary">Check Query</button>
+        <button id="clearBtn" class="btn">Clear</button>
+        <a class="btn link" href="admin.html" id="adminLink">Admin Dashboard</a>
+      </div>
+
+      <div id="resultBox" class="result hidden">
+        <div id="resultLabel" class="result-label"></div>
+        <div id="resultMeta" class="result-meta"></div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <small>Demo only — do not test on systems you do not own.</small>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
 </body>
 </html>
