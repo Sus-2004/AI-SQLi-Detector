@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI SQL Injection Detector</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>AI-Guided SQL Injection Detector</h1>
+        
+        <div class="query-section">
+            <textarea id="sqlQuery" placeholder="Enter your SQL query here..."></textarea>
+            <button id="checkBtn">Check Query</button>
+            <div id="result"></div>
+        </div>
+
+        <div class="stats-section">
+            <h2>Statistics</h2>
+            <p>Total Queries: <span id="total">0</span></p>
+            <p>Safe Queries: <span id="safe">0</span></p>
+            <p>SQL Injection Attempts: <span id="attacks">0</span></p>
+            <button id="refreshStats">Refresh Stats</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
